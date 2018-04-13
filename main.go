@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/josephjang/single-decree-paxos-go/paxos"
+
 	p "github.com/josephjang/single-decree-paxos-go/paxos"
 	log "github.com/sirupsen/logrus"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
@@ -22,92 +24,8 @@ func proposer(name string, num int64, val int64,
 	prepareReqChans []chan p.PrepareRequest,
 	acceptReqChans []chan p.AcceptRequest,
 	wg *sync.WaitGroup) {
-
-	defer wg.Done()
-
-	log.WithFields(log.Fields{"number": num, "value": val}).Infof("Proposer %s: Started", name)
-
-	//
-	// Phase 1
-	//
-
-	var prepareRespChan = make(chan p.PrepareResponse, channelBufferSize)
-
-	var prepareRequest = p.PrepareRequest{
-		ProposalNumber:      num,
-		PrepareResponseChan: prepareRespChan,
-	}
-
-	log.Debugf("Proposer %s: Sending prepare request: %+v", name, prepareRequest)
-
-	for _, prepareReqChan := range prepareReqChans {
-		select {
-		case prepareReqChan <- prepareRequest:
-			log.WithField("number", prepareRequest.ProposalNumber).Infof("Proposer %s: Sent a prepare request", name)
-		case <-time.After(10 * time.Second):
-			log.Infof("Proposer %s: Timeout while sending prepare requests", name)
-		}
-	}
-
-	var prepareResponses []p.PrepareResponse
-
-	for len(prepareResponses) < 2 {
-		select {
-		case prepareResp := <-prepareRespChan:
-			log.WithFields(
-				log.Fields{
-					"number":          prepareResp.ProposalNumber,
-					"accepted-number": prepareResp.AcceptedProposal.ProposalNumber,
-					"accepted-value":  prepareResp.AcceptedProposal.Value,
-				}).Infof("Proposer %s: Received a prepare response", name)
-			prepareResponses = append(prepareResponses, prepareResp)
-		case <-time.After(10 * time.Second):
-			log.Infof("Proposer %s: Timeout while receiving prepare responses", name)
-			log.Infof("Proposer %s: Terminated", name)
-			return
-		}
-	}
-
-	log.Infof("Proposer %s: Received prepare responses from the majority", name)
-
-	//
-	// Phase 2
-	//
-
-	// check val from the response
-	lastProposalFromResp := p.Proposal{
-		ProposalNumber: -1,
-	}
-	for _, r := range prepareResponses {
-		if r.AcceptedProposal.ProposalNumber > lastProposalFromResp.ProposalNumber {
-			lastProposalFromResp = r.AcceptedProposal
-		}
-	}
-
-	if lastProposalFromResp.ProposalNumber != -1 {
-		val = lastProposalFromResp.Value
-	}
-
-	acceptReq := p.AcceptRequest{
-		ProposalNumber: num,
-		Value:          val,
-	}
-
-	log.Debugf("Proposer %s: Sending accept request: %+v", name, acceptReq)
-
-	for _, acceptReqChan := range acceptReqChans {
-		select {
-		case acceptReqChan <- acceptReq:
-			log.WithFields(log.Fields{
-				"number": acceptReq.ProposalNumber,
-				"value":  acceptReq.Value,
-			}).Infof("Proposer %s: Sent a accept request", name)
-		case <-time.After(10 * time.Second):
-			log.Infof("Proposer %s: Timeout while sending accept requests", name)
-		}
-	}
-
-	log.Infof("Proposer %s: Finished", name)
+	p := paxos.NewProposer(name, num, val, prepareReqChans, acceptReqChans, wg)
+	p.Run()
 }
 
 var shutdown = false
