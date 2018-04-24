@@ -31,72 +31,9 @@ func proposer(name string, num int64, val int64,
 var shutdown = false
 
 // process prepare/accept requests
-func acceptor(name string, prepareReqChan chan p.PrepareRequest,
-	acceptReqChan chan p.AcceptRequest,
-	wg *sync.WaitGroup) {
-
-	defer wg.Done()
-
-	// TODO: ID
-	log.Infof("Acceptor %s: Started", name)
-
-	var maxProposalNumber int64 = -1
-	var acceptedProposal = p.Proposal{
-		ProposalNumber: -1,
-	}
-
-	acceptorTimeout := 10 * time.Second
-
-	for !shutdown {
-		select {
-		case prepareReq := <-prepareReqChan:
-			log.WithField("number", prepareReq.ProposalNumber).Infof("Acceptor %s: Received a prepare request", name)
-			if prepareReq.ProposalNumber > maxProposalNumber {
-				maxProposalNumber = prepareReq.ProposalNumber
-				// send response
-				prepareResp := p.PrepareResponse{
-					ProposalNumber:   prepareReq.ProposalNumber,
-					AcceptedProposal: acceptedProposal,
-				}
-				// TODO: send async
-				prepareReq.PrepareResponseChan <- prepareResp
-				log.WithFields(log.Fields{
-					"number":          prepareResp.ProposalNumber,
-					"accepted-number": prepareResp.AcceptedProposal.ProposalNumber,
-					"accepted-value":  prepareResp.AcceptedProposal.Value,
-				}).Infof("Acceptor %s: Sent a prepare response", name)
-
-			} else {
-				log.WithField("number", prepareReq.ProposalNumber).Infof("Acceptor %s: Ignore the Prepare request", name)
-			}
-		case acceptReq := <-acceptReqChan:
-			log.WithFields(log.Fields{
-				"number": acceptReq.ProposalNumber,
-				"value":  acceptReq.Value,
-			}).Infof("Acceptor %s: Received an accept request", name)
-			if acceptReq.ProposalNumber >= maxProposalNumber {
-				maxProposalNumber = acceptReq.ProposalNumber
-				acceptedProposal = p.Proposal{
-					ProposalNumber: acceptReq.ProposalNumber,
-					Value:          acceptReq.Value,
-				}
-				acceptorTimeout = 3 * time.Second // reduce the timeout since there is the accepted proposal
-				log.Infof("Acceptor %s: Updated the accepted proposal: %+v", name, acceptedProposal)
-			} else {
-				log.WithFields(log.Fields{
-					"number": acceptReq.ProposalNumber,
-					"value":  acceptReq.Value,
-				}).Infof("Acceptor %s: Ignored an accept request: %+v", name, acceptReq)
-			}
-			// TODO: write the value
-		case <-time.After(acceptorTimeout):
-			log.Infof("Acceptor %s: Timeout while waiting for messages", name)
-			log.Infof("Acceptor %s: Terminated", name)
-			return
-		}
-	}
-
-	log.Infof("Acceptor %s: Shutdowned", name)
+func acceptor(name string, prepareReqChan chan p.PrepareRequest, acceptReqChan chan p.AcceptRequest, wg *sync.WaitGroup) {
+	a := paxos.NewAcceptor(name, prepareReqChan, acceptReqChan, wg)
+	a.Run()
 }
 
 func main() {
