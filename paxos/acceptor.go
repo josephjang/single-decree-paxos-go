@@ -7,14 +7,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-//
-// Acceptor represents a acceptor in single-decree Paxos protocol
-//
-// - name: name of the acceptor
-// - prepareReqChan: a channel to receive PrepareRequest (p1a)
-// - acceptReqChan: a channel to receive AcceptRequest (p2a)
-// - waitGroup: wait group to notify the proposer process is finished
-//
+/*
+Acceptor represents a acceptor in single-decree Paxos protocol
+
+	- name: name of the acceptor
+	- prepareReqChan: a channel to receive PrepareRequest (p1a)
+	- acceptReqChan: a channel to receive AcceptRequest (p2a)
+	- waitGroup: wait group to notify the proposer process is finished
+*/
 type Acceptor struct {
 	name           string
 	prepareReqChan chan PrepareRequest

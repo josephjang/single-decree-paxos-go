@@ -9,16 +9,16 @@ import (
 
 const channelBufferSize = 1024
 
-//
-// Proposer represents a proposer in single-decree Paxos protocol
-//
-// - name: name of the proposer
-// - num: ballot number to propose
-// - val: value to request to accept
-// - prepareReqChans: acceptors' channels to send PrepareRequest (p1a)
-// - acceptReqChans: acceptors' channels to send AcceptRequest (p2a)
-// - waitGroup: wait group to notify the proposer process is finished
-//
+/*
+Proposer represents a proposer in single-decree Paxos protocol
+
+	- name: name of the proposer
+	- num: ballot number to propose
+	- val: value to request to accept
+	- prepareReqChans: acceptors' channels to send PrepareRequest (p1a)
+	- acceptReqChans: acceptors' channels to send AcceptRequest (p2a)
+	- waitGroup: wait group to notify the proposer process is finished
+*/
 type Proposer struct {
 	name            string
 	num             int64
